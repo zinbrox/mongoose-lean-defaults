@@ -38,8 +38,7 @@ function validateBob(bob: User) {
   expect(bob.aliases).toBeDefined();
   expect(bob.aliases).toHaveLength(0);
   expect(bob.arrayWithDefault).toBeUndefined();
-  expect(bob.nestedWithoutDefaults).toBeDefined();
-  expect(bob.nestedWithoutDefaults.test).toBeUndefined();
+  expect(bob.nestedWithoutDefaults).toBeUndefined();
   expect(bob.nested).toBeDefined();
   expect(bob.nested.prop).toBe('Default');
   expect(bob.nested.other).toBe(true);
@@ -47,8 +46,7 @@ function validateBob(bob: User) {
   expect(bob.fnDefault).toBe('Bob');
   expect(bob.defaultWithSchemaTypeFn).toBe('Test Default');
   expect(bob.nullWithSchemaTypeFn).toBe(null);
-  expect(bob.oldNullableObj).toBeDefined();
-  expect(bob.oldNullableObj.oldNullableProp).toBeUndefined();
+  expect(bob.oldNullableObj).toBeNull();
 }
 function validateAlice(alice: User) {
   expect(alice.country).toBe('CA');

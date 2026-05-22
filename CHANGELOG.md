@@ -1,3 +1,7 @@
+# 2.3.2 / 2026-05-22
+
+- Fixed: Do not create empty objects for nested inline paths with no defaults [#31](https://github.com/DouglasGabr/mongoose-lean-defaults/issues/31)
+
 # 2.3.1 / 2025-08-24
 
 - Fixed: NPM publish action broke main property in package.json

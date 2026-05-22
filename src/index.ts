@@ -32,8 +32,6 @@ function getDefaultsRegistryEntry(schema: Schema): Default[] {
   }
 
   const defaults: Default[] = [];
-  const defaultedTrie: Record<string, unknown> = {};
-  const nestedPathsSegmentsWithNoDefault: string[][] = [];
 
   schema.eachPath((pathname, schemaType) => {
     if (pathname.endsWith('.$*')) {
@@ -49,48 +47,8 @@ function getDefaultsRegistryEntry(schema: Schema): Default[] {
         fnValue: isFunc ? (defaultValue as Default['fnValue']) : undefined,
         pathSegments,
       });
-
-      // Populate the trie data structure to know which intermediate values are already covered
-      let cur = defaultedTrie;
-      for (let i = 0; i < pathSegments.length - 1; ++i) {
-        cur[pathSegments[i]] = cur[pathSegments[i]] || {};
-        cur = cur[pathSegments[i]] as Record<string, unknown>;
-      }
-    } else if (pathSegments.length > 1) {
-      nestedPathsSegmentsWithNoDefault.push(pathSegments);
     }
   });
-
-  // If the value does not have a default but it's a nested path we still want to default
-  // all of the intermediate values. We will do it by creating a fake empty default if the path
-  // intermediates are not covered by a real default already. `attachDefaultsToDoc` will handle
-  // the creation of these intermediates.
-
-  // Sort the array to have longest paths first to avoid creating redundant empty defaults.
-  nestedPathsSegmentsWithNoDefault.sort((a, b) => b.length - a.length);
-  for (let i = 0; i < nestedPathsSegmentsWithNoDefault.length; i++) {
-    const pathSegments = nestedPathsSegmentsWithNoDefault[i];
-
-    let covered = true;
-    let cur = defaultedTrie;
-
-    for (let j = 0; j < pathSegments.length - 1; ++j) {
-      if (!cur[pathSegments[j]]) {
-        covered = false;
-      }
-
-      cur[pathSegments[j]] = cur[pathSegments[j]] || {};
-      cur = cur[pathSegments[j]] as Record<string, unknown>;
-    }
-
-    if (!covered) {
-      defaults.push({
-        value: undefined,
-        fnValue: undefined,
-        pathSegments,
-      });
-    }
-  }
 
   DEFAULTS_REGISTRY.set(schema, defaults);
 
