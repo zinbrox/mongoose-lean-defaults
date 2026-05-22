@@ -32,6 +32,9 @@ function getDefaultsRegistryEntry(schema: Schema): Default[] {
   }
 
   const defaults: Default[] = [];
+  // Set early so recursive calls to getDefaultsRegistryEntry on this same schema
+  // (via getDefault → Embedded/Subdocument check) return [] instead of looping.
+  DEFAULTS_REGISTRY.set(schema, defaults);
 
   schema.eachPath((pathname, schemaType) => {
     if (pathname.endsWith('.$*')) {
@@ -221,9 +224,16 @@ function getDefault(schemaType: SchemaType): unknown {
     ('Subdocument' in mongoose.Schema.Types &&
       schemaType instanceof mongoose.Schema.Types.Subdocument)
   ) {
-    return function () {
-      return {};
-    };
+    // Only create an empty-object factory when the child schema has fields with
+    // actual defaults — otherwise the embedded field should remain absent.
+    const childSchema: Schema | undefined = (schemaType as any).schema;
+    if (childSchema && getDefaultsRegistryEntry(childSchema).length > 0) {
+      return function () {
+        return {};
+      };
+    }
+    // @ts-expect-error defaultValue is a valid prop
+    return schemaType.defaultValue;
   } else {
     // @ts-expect-error defaultValue is a valid prop
     return schemaType.defaultValue;
