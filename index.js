@@ -108,7 +108,7 @@ function attachDefaultsToDoc(schema, doc, prefix) {
         if (selectedFieldKeys) {
             const pathname = defaultEntry.pathSegments.join('.');
             const fullPath = prefix ? `${prefix}.${pathname}` : pathname;
-            const matchedKey = selectedFieldKeys.find((key) => fullPath.startsWith(key) || key.startsWith(fullPath));
+            const matchedKey = selectedFieldKeys.find((key) => fullPath === key || fullPath.startsWith(key + '.') || key.startsWith(fullPath + '.'));
             const included = matchedKey && (fields === null || fields === void 0 ? void 0 : fields[matchedKey]) != null;
             if (this.selectedInclusively() && !included) {
                 continue;

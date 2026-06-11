@@ -101,6 +101,29 @@ describe('projections', () => {
     await mongoose.disconnect();
   });
 
+  it('should not apply defaults to fields that share a string prefix with a projected field', async () => {
+    const prefixSchema = new Schema(
+      { strength: { type: Number, default: 10 }, strength_modifier: { type: Number, default: 5 } },
+      { collection: 'prefix_projection' },
+    );
+    prefixSchema.plugin(mongooseLeanDefaults);
+    const PrefixModel = mongoose.model('PrefixProjection', prefixSchema);
+    await PrefixModel.deleteMany({}).exec();
+    await PrefixModel.collection.insertOne({});
+
+    // inclusive projection: only `strength` selected
+    const inclusive = (await PrefixModel.findOne({}).select({ strength: 1 }).lean({ defaults: true }).exec())!;
+    expect(inclusive.strength).toEqual(10);
+    expect((inclusive as any).strength_modifier).toBeUndefined();
+
+    // exclusive projection: `strength` excluded, `strength_modifier` should still get its default
+    const exclusive = (await PrefixModel.findOne({}).select({ strength: 0 }).lean({ defaults: true }).exec())!;
+    expect((exclusive as any).strength).toBeUndefined();
+    expect((exclusive as any).strength_modifier).toEqual(5);
+
+    await mongoose.deleteModel('PrefixProjection');
+  });
+
   it('should respect projections', async () => {
     // arrange
     await MyModel.collection.insertOne({

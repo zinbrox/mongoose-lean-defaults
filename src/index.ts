@@ -154,7 +154,10 @@ function attachDefaultsToDoc(
       const pathname = defaultEntry.pathSegments.join('.');
       const fullPath = prefix ? `${prefix}.${pathname}` : pathname;
       const matchedKey = selectedFieldKeys.find(
-        (key) => fullPath.startsWith(key) || key.startsWith(fullPath),
+        (key) =>
+          fullPath === key ||
+          fullPath.startsWith(key + '.') ||
+          key.startsWith(fullPath + '.'),
       );
 
       const included = matchedKey && fields?.[matchedKey] != null;
