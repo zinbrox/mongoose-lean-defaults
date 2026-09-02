@@ -7,6 +7,7 @@ exports.attachDefaults = void 0;
 const mpath_1 = __importDefault(require("mpath"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const DEFAULTS_REGISTRY = new WeakMap();
+const MAP_CHILD_SCHEMAS_REGISTRY = new WeakMap();
 function mongooseLeanDefaults(schema, options) {
     const fn = attachDefaultsMiddleware(schema, options);
     schema.post('find', fn);
@@ -22,8 +23,17 @@ function getDefaultsRegistryEntry(schema) {
         return existing;
     }
     const defaults = [];
+    const mapChildSchemas = [];
+    DEFAULTS_REGISTRY.set(schema, defaults);
     schema.eachPath((pathname, schemaType) => {
         if (pathname.endsWith('.$*')) {
+            const childSchema = schemaType.schema;
+            if (childSchema && getDefaultsRegistryEntry(childSchema).length > 0) {
+                mapChildSchemas.push({
+                    path: pathname.slice(0, -'.$*'.length),
+                    schema: childSchema,
+                });
+            }
             return;
         }
         const pathSegments = pathname.split('.');
@@ -38,7 +48,28 @@ function getDefaultsRegistryEntry(schema) {
         }
     });
     DEFAULTS_REGISTRY.set(schema, defaults);
+    MAP_CHILD_SCHEMAS_REGISTRY.set(schema, mapChildSchemas);
     return defaults;
+}
+function getMapChildSchemas(schema) {
+    var _a;
+    return (_a = MAP_CHILD_SCHEMAS_REGISTRY.get(schema)) !== null && _a !== void 0 ? _a : [];
+}
+function collectMapValues(data) {
+    if (data == null) {
+        return [];
+    }
+    if (Array.isArray(data)) {
+        const out = [];
+        for (const item of data) {
+            out.push(...collectMapValues(item));
+        }
+        return out;
+    }
+    if (typeof data === 'object') {
+        return Object.values(data).filter((v) => v != null);
+    }
+    return [];
 }
 function attachDefaultsMiddleware(schema, options) {
     return function (res) {
@@ -65,7 +96,8 @@ function attachDefaults(schema, res, options, prefix) {
         }
         for (let i = 0; i < schema.childSchemas.length; ++i) {
             const _schema = schema.childSchemas[i].schema;
-            if (!getDefaultsRegistryEntry(_schema).length) {
+            if (!getDefaultsRegistryEntry(_schema).length &&
+                !getMapChildSchemas(_schema).length) {
                 continue;
             }
             const _path = schema.childSchemas[i].model.path;
@@ -80,6 +112,15 @@ function attachDefaults(schema, res, options, prefix) {
                 continue;
             }
             attachDefaults.call(this, _schema, _doc, options, prefix ? `${prefix}.${_path}` : _path);
+        }
+        const mapChildSchemas = getMapChildSchemas(schema);
+        for (let i = 0; i < mapChildSchemas.length; ++i) {
+            const { path: _path, schema: _schema } = mapChildSchemas[i];
+            const mapValues = collectMapValues(mpath_1.default.get(_path, res));
+            if (mapValues.length === 0) {
+                continue;
+            }
+            attachDefaults.call(this, _schema, mapValues, options, prefix ? `${prefix}.${_path}.$*` : `${_path}.$*`);
         }
         return res;
     }
@@ -108,7 +149,9 @@ function attachDefaultsToDoc(schema, doc, prefix) {
         if (selectedFieldKeys) {
             const pathname = defaultEntry.pathSegments.join('.');
             const fullPath = prefix ? `${prefix}.${pathname}` : pathname;
-            const matchedKey = selectedFieldKeys.find((key) => fullPath === key || fullPath.startsWith(key + '.') || key.startsWith(fullPath + '.'));
+            const matchedKey = selectedFieldKeys.find((key) => fullPath === key ||
+                fullPath.startsWith(key + '.') ||
+                key.startsWith(fullPath + '.'));
             const included = matchedKey && (fields === null || fields === void 0 ? void 0 : fields[matchedKey]) != null;
             if (this.selectedInclusively() && !included) {
                 continue;
@@ -162,9 +205,13 @@ function getDefault(schemaType) {
         schemaType instanceof mongoose_1.default.Schema.Types.Embedded) ||
         ('Subdocument' in mongoose_1.default.Schema.Types &&
             schemaType instanceof mongoose_1.default.Schema.Types.Subdocument)) {
-        return function () {
-            return {};
-        };
+        const childSchema = schemaType.schema;
+        if (childSchema && getDefaultsRegistryEntry(childSchema).length > 0) {
+            return function () {
+                return {};
+            };
+        }
+        return schemaType.defaultValue;
     }
     else {
         return schemaType.defaultValue;

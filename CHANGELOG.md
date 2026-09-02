@@ -1,3 +1,8 @@
+# 2.3.5 / 2026-09-02
+
+- Fixed: Defaults declared on a `Map`'s subdocument schema (`{ type: Map, of: someSchema }`) were never applied, even when the map field was nested inside an array of subdocuments or another map
+- Rebuilt published `index.js`/`index.d.ts` from source (previous published versions since 2.3.2 were missing the #31 fix due to a stale build artifact)
+
 # 2.3.2 / 2026-05-22
 
 - Fixed: Do not create empty objects for nested inline paths with no defaults [#31](https://github.com/DouglasGabr/mongoose-lean-defaults/issues/31)

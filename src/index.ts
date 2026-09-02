@@ -10,8 +10,13 @@ interface Default {
   fnValue: ((doc: unknown) => unknown) | undefined;
   pathSegments: string[];
 }
+interface MapChildSchema {
+  path: string;
+  schema: Schema;
+}
 
 const DEFAULTS_REGISTRY = new WeakMap<Schema, Default[]>();
+const MAP_CHILD_SCHEMAS_REGISTRY = new WeakMap<Schema, MapChildSchema[]>();
 
 export default function mongooseLeanDefaults(
   schema: Schema<any, any, any, any>,
@@ -32,12 +37,25 @@ function getDefaultsRegistryEntry(schema: Schema): Default[] {
   }
 
   const defaults: Default[] = [];
+  const mapChildSchemas: MapChildSchema[] = [];
   // Set early so recursive calls to getDefaultsRegistryEntry on this same schema
   // (via getDefault → Embedded/Subdocument check) return [] instead of looping.
   DEFAULTS_REGISTRY.set(schema, defaults);
 
   schema.eachPath((pathname, schemaType) => {
     if (pathname.endsWith('.$*')) {
+      // This is the value schema of a Map field (e.g. "mapField.$*"). There's no
+      // single "mapField.$*" key on a real document — each map entry lives under
+      // its own runtime key — so it can't be handled like a normal default path.
+      // If the map holds subdocuments, register the child schema separately and
+      // apply its defaults to every actual key at doc-processing time instead.
+      const childSchema = (schemaType as unknown as { schema?: Schema }).schema;
+      if (childSchema && getDefaultsRegistryEntry(childSchema).length > 0) {
+        mapChildSchemas.push({
+          path: pathname.slice(0, -'.$*'.length),
+          schema: childSchema,
+        });
+      }
       return;
     }
     const pathSegments = pathname.split('.');
@@ -54,8 +72,32 @@ function getDefaultsRegistryEntry(schema: Schema): Default[] {
   });
 
   DEFAULTS_REGISTRY.set(schema, defaults);
+  MAP_CHILD_SCHEMAS_REGISTRY.set(schema, mapChildSchemas);
 
   return defaults;
+}
+
+function getMapChildSchemas(schema: Schema): MapChildSchema[] {
+  return MAP_CHILD_SCHEMAS_REGISTRY.get(schema) ?? [];
+}
+
+function collectMapValues(data: unknown): unknown[] {
+  if (data == null) {
+    return [];
+  }
+  if (Array.isArray(data)) {
+    const out: unknown[] = [];
+    for (const item of data) {
+      out.push(...collectMapValues(item));
+    }
+    return out;
+  }
+  if (typeof data === 'object') {
+    return Object.values(data as Record<string, unknown>).filter(
+      (v) => v != null,
+    );
+  }
+  return [];
 }
 
 function attachDefaultsMiddleware(
@@ -95,7 +137,10 @@ export function attachDefaults(
 
     for (let i = 0; i < schema.childSchemas.length; ++i) {
       const _schema = schema.childSchemas[i].schema;
-      if (!getDefaultsRegistryEntry(_schema).length) {
+      if (
+        !getDefaultsRegistryEntry(_schema).length &&
+        !getMapChildSchemas(_schema).length
+      ) {
         continue;
       }
       const _path = schema.childSchemas[i].model.path;
@@ -115,6 +160,22 @@ export function attachDefaults(
         _doc,
         options,
         prefix ? `${prefix}.${_path}` : _path,
+      );
+    }
+
+    const mapChildSchemas = getMapChildSchemas(schema);
+    for (let i = 0; i < mapChildSchemas.length; ++i) {
+      const { path: _path, schema: _schema } = mapChildSchemas[i];
+      const mapValues = collectMapValues(mpath.get(_path, res));
+      if (mapValues.length === 0) {
+        continue;
+      }
+      attachDefaults.call(
+        this,
+        _schema,
+        mapValues,
+        options,
+        prefix ? `${prefix}.${_path}.$*` : `${_path}.$*`,
       );
     }
 
