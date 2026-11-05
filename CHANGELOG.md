@@ -1,3 +1,8 @@
+# 2.3.6 / 2026-11-05
+
+- Perf: when the query has a projection, decide which defaults the projection keeps once per schema level instead of once per document (and once per subdocument array element). Output is unchanged
+- Perf: empty results return immediately without evaluating the projection
+
 # 2.3.5 / 2026-09-02
 
 - Fixed: Defaults declared on a `Map`'s subdocument schema (`{ type: Map, of: someSchema }`) were never applied, even when the map field was nested inside an array of subdocuments or another map
