@@ -78,7 +78,7 @@ function attachDefaultsMiddleware(schema, options) {
 }
 function attachDefaults(schema, res, options, prefix) {
     var _a, _b;
-    if (res == null) {
+    if (res == null || (Array.isArray(res) && res.length === 0)) {
         return res;
     }
     const shouldApplyDefaults = !!this._mongooseOptions.lean &&

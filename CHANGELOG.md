@@ -1,6 +1,7 @@
 # Unreleased
 
 - Perf: when the query has a projection, decide which defaults the projection keeps once per schema level instead of once per document (and once per subdocument array element). Output is unchanged
+- Perf: empty results return immediately without evaluating the projection
 
 # 2.3.5 / 2026-09-02
 

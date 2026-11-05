@@ -116,7 +116,7 @@ export function attachDefaults(
   options?: MongooseLeanDefaultsOptions,
   prefix?: string,
 ) {
-  if (res == null) {
+  if (res == null || (Array.isArray(res) && res.length === 0)) {
     return res;
   }
 

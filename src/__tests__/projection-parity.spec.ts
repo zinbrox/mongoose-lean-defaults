@@ -157,4 +157,15 @@ describe('projection parity', () => {
     const second = attachDefaults.call(query, schema, [{}]);
     expect(second).toEqual([{ title: 'title', titleSuffix: 'suffix' }]);
   });
+
+  it('does not evaluate the projection for an empty result', () => {
+    const query = MyModel.find({})
+      .select({ title: 1 })
+      .lean({ defaults: true });
+    const selected = jest.spyOn(query, 'selected');
+    const res: unknown[] = [];
+
+    expect(attachDefaults.call(query, schema, res)).toBe(res);
+    expect(selected).not.toHaveBeenCalled();
+  });
 });
